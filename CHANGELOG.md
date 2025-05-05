@@ -1,4 +1,4 @@
-## [0.1.0-beta.1] – 2025-05-05
+## [v0.1.0-beta.1] – 2025-05-05
 
 ### Added
 - Initial beta release of the HeatRisk GeoTIFF scraper  
