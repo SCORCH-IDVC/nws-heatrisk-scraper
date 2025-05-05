@@ -1,0 +1,70 @@
+# .github/workflows/filetimes_check.yml
+name: HeatRisk Timestamp Check
+
+on:
+  schedule:
+    - cron: '*/7 * * * *'  # every 7 minutes
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install requests dropbox
+          sudo apt-get update && sudo apt-get install -y jq
+
+
+      - name: Refresh Dropbox Access Token
+        id: refresh
+        run: |
+          resp=$(curl -sSf https://api.dropboxapi.com/oauth2/token \
+            --request POST \
+            --data grant_type=refresh_token \
+            --data refresh_token=${{ secrets.DROPBOX_REFRESH_TOKEN }} \
+            --data client_id=${{ secrets.DROPBOX_APP_KEY }} \
+            --data client_secret=${{ secrets.DROPBOX_APP_SECRET }})
+          token=$(echo "$resp" | jq -r .access_token)
+          echo "token=$token" >> $GITHUB_OUTPUT
+
+      - name: Pull existing updates.txt from Dropbox
+        env:
+          DROPBOX_TOKEN: ${{ steps.refresh.outputs.token }}
+        run: |
+          mkdir -p checks
+          # Download the existing log; ignore errors if it doesn't exist yet
+          curl -s --fail \
+            --header "Authorization: Bearer $DROPBOX_TOKEN" \
+            --header 'Dropbox-API-Arg: {"path": "/filetimes_checks/updates.txt"}' \
+            https://content.dropboxapi.com/2/files/download \
+            > checks/updates.txt || true
+
+      - name: Run FileTimes check
+        id: check
+        run: python check_filetimes.py --output-dir checks
+
+      - name: Upload updates.txt to Dropbox
+        env:
+          DROPBOX_TOKEN: ${{ steps.refresh.outputs.token }}
+        run: |
+          python - << 'EOF'
+          import os, dropbox
+          from dropbox.files import WriteMode
+
+          dbx = dropbox.Dropbox(os.environ['DROPBOX_TOKEN'])
+          local = 'checks/updates.txt'
+          with open(local, 'rb') as fh:
+              dbx.files_upload(
+                  fh.read(),
+                  '/filetimes_checks/updates.txt',
+                  mode=WriteMode('overwrite')
+              )
+          EOF

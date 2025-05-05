@@ -1,0 +1,65 @@
+# .github/workflows/daily_scrape.yml
+
+name: Daily GeoTIFF Scrape
+
+on:
+  schedule:
+    # 9 AM ET during EDT (UTC−4): March through October
+    - cron: '0 13 * 3-10 *'
+    # 9 AM ET during EST (UTC−5): November through February
+    - cron: '0 14 * 11,12,1,2 *'
+  workflow_dispatch:  # allows manual runs
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies & jq
+        run: |
+          pip install --upgrade pip
+          pip install requests beautifulsoup4 pillow dropbox
+          sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Run GeoTIFF scraper
+        run: |
+          python geotiff_scraper.py --output-dir forecasts
+
+      - name: Refresh Dropbox Access Token
+        id: refresh
+        run: |
+          resp=$(curl -sSf https://api.dropboxapi.com/oauth2/token \
+            --request POST \
+            --data grant_type=refresh_token \
+            --data refresh_token=${{ secrets.DROPBOX_REFRESH_TOKEN }} \
+            --data client_id=${{ secrets.DROPBOX_APP_KEY }} \
+            --data client_secret=${{ secrets.DROPBOX_APP_SECRET }})
+          token=$(echo "$resp" | jq -r .access_token)
+          echo "token=$token" >> $GITHUB_OUTPUT
+
+      - name: Upload forecasts to Dropbox
+        env:
+          DROPBOX_TOKEN: ${{ steps.refresh.outputs.token }}
+        run: |
+          python - << 'EOF'
+          import os
+          import dropbox
+          from dropbox.files import WriteMode
+
+          dbx = dropbox.Dropbox(os.environ['DROPBOX_TOKEN'])
+          for root, _, files in os.walk('forecasts'):
+              for fname in files:
+                  local_path = os.path.join(root, fname)
+                  dropbox_path = '/' + os.path.relpath(local_path, '.')
+                  with open(local_path, 'rb') as f:
+                      dbx.files_upload(f.read(), dropbox_path,
+                                       mode=WriteMode('overwrite'))
+          EOF
