@@ -88,15 +88,15 @@ To run the scraper locally:
       - After you click **Allow**, Dropbox will show you a one-time **authorization code**—copy that value.
 
    6. **Exchange the code for a refresh token**  
-      Open PowerShell (you may need to run it “As Administrator” if scripts are disabled) and paste in:
+      Open PowerShell (you may need to run it “As Administrator” if scripts are disabled) and paste in these three snippets one by one:
 
       ```powershell
-      # replace these with your actual values
+      # 1. replace these with your actual values
       $authCode  = '<YOUR_AUTHORIZATION_CODE>'
       $appKey    = '<YOUR_APP_KEY>'
       $appSecret = '<YOUR_APP_SECRET>'
 
-      # Exchange for a long-lived refresh token
+      # 2. Exchange for a long-lived refresh token
       $response = Invoke-RestMethod `
         -Uri 'https://api.dropboxapi.com/oauth2/token' `
         -Method Post `
@@ -109,7 +109,7 @@ To run the scraper locally:
           token_access_type  = 'offline'
         }
 
-      # Refresh token will appear here after run. Copy it exactly.
+      # 3. Refresh token will appear here after run. Copy it exactly.
       $refreshToken = $response.refresh_token
       Write-Host "Refresh token:`n$refreshToken"
       ```
