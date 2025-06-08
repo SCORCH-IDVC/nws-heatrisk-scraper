@@ -1,3 +1,12 @@
+## [Unreleased]
+
+### Changed
+- Clarified Dropbox refresh token retrieval steps in `README.md`
+- Expanded `geotiff_scraper.py` documentation
+- Cleaned up `check_filetimes.py` imports and ensured file ends with a newline
+- Updated `.gitignore` entries for timestamp checks
+- Standardized version numbers in the changelog with a `v` prefix
+
 ## [v0.1.0-beta.1] – 2025-05-05
 
 ### Added
