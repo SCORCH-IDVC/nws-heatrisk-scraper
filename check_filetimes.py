@@ -17,7 +17,6 @@ import logging
 import os
 import sys
 import requests
-from datetime import datetime
 
 URL = "https://www.wpc.ncep.noaa.gov/heatrisk/data/FileTimes.json"
 
