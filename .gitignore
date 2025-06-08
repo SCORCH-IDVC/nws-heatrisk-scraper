@@ -10,9 +10,9 @@ venv/
 
 # Scraped data
 forecasts/
+filetimes_checks/
 
 # Editor folders
 .DS_Store
 .idea/
 .vscode/
-.DS_Store
