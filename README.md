@@ -18,9 +18,8 @@ A command-line tool and GitHub Actions workflow to:
 - Robust retry logic and download-integrity validation  
 - Verifies each downloaded TIFF’s internal DateTime tag matches its forecast date  
 - Configurable via CLI flags (`--base-url`, `--output-dir`, `--days-prefix`, `--verbose`)  
-- Runs on your machine or scheduled daily via GitHub Actions  
-- Pushes data off-repo into Dropbox (or any other supported storage)  
-
+- Runs on your machine or scheduled daily via GitHub Actions
+- Pushes data off-repo into Dropbox (or any other supported storage)
 > **Experimental:**  
 > - Periodically polls the `heatrisk_updated` timestamp  from FileTimes.json on the heatrisk site via `check_filetimes.py` and logs it (see `.github/workflows/filetimes_check.yml`).
 >     - **Note:** When run locally or in CI, `check_filetimes.py` will create a `filetimes_checks/` directory (git-ignored) to store its rolling `updates.txt` log.

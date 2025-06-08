@@ -1,34 +1,35 @@
-"""
-geotiff_scraper.py
+"""GeoTIFF HeatRisk scraper
+===========================
 
-A command-line tool to download GeoTIFF heat risk forecasts from the NOAA Weather Prediction Center.
+This script downloads the seven daily HeatRisk GeoTIFF forecasts from the
+NOAA Weather Prediction Center.  It is designed to run either manually or
+as part of a scheduled GitHub Actions workflow.
 
-Features:
-- Fetches the HeatRisk data page and extracts forecast dates from the `FileTimes.js` mapping.
-- Parses links labeled "Day N" and uses the `file_times` mapping for exact dates, aborting on any missing mapping.
-- Retries network calls with exponential back-off and validates every
-  download (temp file, byte-count check, atomic move) so no partial GeoTIFFs
-  are kept.
-- Organizes downloads into nested year/month/day folders, each day folder
-  holding its 7 GeoTIFFs named with the issue date, forecast date, and day
-  offset.
-- Verifies each downloaded TIFF’s internal DateTime tag matches the filename’s forecast date.
-- Configurable via CLI flags.
+**Key steps**
+1. Fetch the HeatRisk data page and read ``FileTimes.js`` to obtain the exact
+   forecast dates for labels such as ``"Day 1"`` or ``"Day 2"``.
+2. Parse the HTML for links that match those labels.
+3. Stream each GeoTIFF to a temporary file, verifying its byte count and
+   ensuring a partial download is never kept.
+4. Inspect the TIFFTAG_DATETIME metadata in each file to confirm it matches the
+   expected forecast date.
+5. Rename the verified file into ``forecasts/<year>/<month>/<day>/`` using a
+   consistent ``<issue_date>_<forecast_date>_DayN.tif`` naming scheme.
 
-Dependencies:
-- requests
-- beautifulsoup4
-- PIL
+The script exposes a small set of CLI flags (``--base-url``, ``--output-dir``,
+``--days-prefix`` and ``--verbose``) to customise where data is fetched from and
+where it is stored.  All network calls include simple retry logic and logging so
+that failures can be diagnosed easily.
 
-Usage:
-    python geotiff_scraper.py [--base-url URL] [--output-dir DIR] [--days-prefix PREFIX] [--verbose]
+Example usage::
 
-Examples:
-    # Basic usage
-    python geotiff_scraper.py
+    python geotiff_scraper.py --output-dir forecasts --verbose
 
-    # Specify custom output directory and enable debug logging
-    python geotiff_scraper.py --output-dir /data/forecasts --verbose
+Dependencies
+------------
+- ``requests``
+- ``beautifulsoup4``
+- ``Pillow`` (for TIFF metadata inspection)
 """
 import argparse
 import tempfile
@@ -49,8 +50,15 @@ from PIL import Image
 
 
 def setup_logger(level: int = logging.INFO) -> None:
-    """
-    Configure the root logger format and level.
+    """Configure the root logger.
+
+    Parameters
+    ----------
+    level : int
+        Logging level such as ``logging.INFO`` or ``logging.DEBUG``.
+
+    The logger prints timestamps and severity so that other functions can
+    simply call ``logging.info`` or ``logging.error``.
     """
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(message)s",
@@ -64,8 +72,25 @@ def fetch_page(
     retries: int = 3,
     backoff: float = 1.0
 ) -> str:
-    """
-    Retrieve HTML content from a URL with retry logic. Aborts on repeated failures.
+    """Retrieve HTML from ``url`` with basic retry logic.
+
+    Parameters
+    ----------
+    session : requests.Session
+        Session object with any preconfigured headers.
+    url : str
+        The page to download.
+    retries : int, optional
+        How many attempts to make before aborting.
+    backoff : float, optional
+        Seconds to wait between attempts (multiplied by the attempt number).
+
+    Returns
+    -------
+    str
+        The response text.
+
+    The program exits after the final failed attempt.
     """
     for attempt in range(1, retries + 1):
         try:
@@ -88,12 +113,28 @@ def download_file(
     timeout: int = 30,
     chunk: int = 64 * 1024,      # 64 KB chunks
 ) -> None:
-    """
-    Stream url to a temporary file, verify byte-count, then atomically move
-    it to dest_path.
+    """Download ``url`` to ``dest_path`` with validation.
 
-    A partial download is never left in forecasts/. If any check fails,
-    the temp file is deleted and the function retries (up to retries times).
+    Parameters
+    ----------
+    session : requests.Session
+        Requests session used for the HTTP GET.
+    url : str
+        Address of the GeoTIFF file.
+    dest_path : Path
+        Final location on disk.
+    retries : int, optional
+        Number of attempts before failing.
+    timeout : int, optional
+        Request timeout in seconds.
+    chunk : int, optional
+        Size of the streaming chunks in bytes.
+
+    The file is first written to a temporary location. If the number of bytes
+    written does not match ``Content-Length`` (when provided) or any other
+    error occurs, the temporary file is removed and the download retried.
+    Only after a successful download is the file moved atomically into
+    ``dest_path``.
     """
     for attempt in range(1, retries + 1):
         tmp_file = None
@@ -141,9 +182,21 @@ def extract_file_times(
     session: requests.Session,
     base_url: str
 ) -> dict:
-    """
-    Fetch FileTimes.js and parse the `file_times` mapping: day => MM/DD/YYYY string.
-    Aborts if the file cannot be parsed.
+    """Load the ``file_times`` mapping from ``FileTimes.js``.
+
+    Parameters
+    ----------
+    session : requests.Session
+        Session used for the HTTP request.
+    base_url : str
+        URL of the HeatRisk data page (used to derive the JS location).
+
+    Returns
+    -------
+    dict[int, date]
+        Mapping of day number to ``datetime.date`` objects.
+
+    The program exits if the file cannot be retrieved or parsed.
     """
     base_path = base_url.rsplit('/', 1)[0]
     url = f"{base_path}/data/FileTimes.js"
@@ -165,9 +218,25 @@ def parse_geotiff_links(
     html: str,
     prefix: str = 'Day'
 ) -> List[Tuple[int, date, str]]:
-    """
-    Parse HTML to extract GeoTIFF links labeled with "Day N" and map to forecast dates via file_times.
-    Aborts if any expected mapping is missing.
+    """Extract GeoTIFF links from the HeatRisk HTML page.
+
+    Parameters
+    ----------
+    session : requests.Session
+        Session used to fetch ``FileTimes.js`` for date mapping.
+    base_url : str
+        Base URL of the data page.
+    html : str
+        Raw HTML of the data page.
+    prefix : str, optional
+        Text prefix used to identify forecast links.
+
+    Returns
+    -------
+    List[Tuple[int, date, str]]
+        Tuples containing the day number, forecast date and href.
+
+    If a matching date cannot be found for a day label the program exits.
     """
     soup = BeautifulSoup(html, 'html.parser')
     file_times = extract_file_times(session, base_url)
@@ -197,10 +266,19 @@ def parse_geotiff_links(
     return geotiffs
 
 def verify_geotiff_date(file_path: Path, expected_date: date) -> None:
-    """
-    Open the GeoTIFF and check its DateTime tag (ID 306) matches expected_date.
-    Supports both 'YYYY:MM:DD hh:mm:ss' and 'YYYY-MM-DD' tag values.
-    Exits if they differ.
+    """Validate the DateTime metadata of a GeoTIFF.
+
+    Parameters
+    ----------
+    file_path : Path
+        Path to the downloaded file.
+    expected_date : date
+        Forecast date the file should correspond to.
+
+    The function reads TIFFTAG_DATETIME (tag 306) and compares only the
+    date portion. Formats ``YYYY:MM:DD`` and ``YYYY-MM-DD`` are both
+    accepted. The program exits if the metadata does not match
+    ``expected_date``.
     """
     try:
         with Image.open(file_path) as img:
@@ -246,8 +324,19 @@ def main(
     output_dir: Path,
     days_prefix: str = 'Day'
 ) -> None:
-    """
-    Orchestrate fetching page, parsing links, and downloading GeoTIFFs into nested folders.
+    """Run the full scraping workflow.
+
+    Parameters
+    ----------
+    base_url : str
+        HeatRisk page containing the forecast links.
+    output_dir : Path
+        Root directory where output will be organised.
+    days_prefix : str, optional
+        Prefix used in link text (``"Day"`` by default).
+
+    The function determines the issue date, downloads each GeoTIFF, verifies
+    its metadata and arranges the files into ``output_dir``.
     """
     __version__ = "0.1.0-beta.1"
     session = requests.Session()
