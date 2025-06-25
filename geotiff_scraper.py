@@ -14,7 +14,9 @@ as part of a scheduled GitHub Actions workflow.
 4. Inspect the TIFFTAG_DATETIME metadata in each file to confirm it matches the
    expected forecast date.
 5. Rename the verified file into ``forecasts/<year>/<month>/<day>/`` using a
-   consistent ``<issue_date>_<forecast_date>_DayN.tif`` naming scheme.
+   consistent ``<issue_date>_<HHMM>_<forecast_date>_DayN.tif`` naming scheme
+   where ``HHMM`` comes from the ``heatrisk_updated`` timestamp in
+   ``FileTimes.js``.
 
 The script exposes a small set of CLI flags (``--base-url``, ``--output-dir``,
 ``--days-prefix`` and ``--verbose``) to customise where data is fetched from and
@@ -319,6 +321,35 @@ def verify_geotiff_date(file_path: Path, expected_date: date) -> None:
         logging.error("Failed to verify metadata for %s: %s", file_path.name, e)
         sys.exit(1)
 
+
+def get_updated_time(session: requests.Session, base_url: str) -> str:
+    """Return the ``HHMM`` portion of the ``heatrisk_updated`` timestamp.
+
+    The value is extracted from ``FileTimes.js``. If the timestamp cannot be
+    retrieved or parsed the program exits with an error.
+
+    Parameters
+    ----------
+    session : requests.Session
+        Session used for the HTTP request.
+    base_url : str
+        URL of the HeatRisk data page (used to derive the JS location).
+    """
+    base_path = base_url.rsplit('/', 1)[0]
+    url = f"{base_path}/data/FileTimes.js"
+    try:
+        resp = session.get(url, timeout=10)
+        resp.raise_for_status()
+        match = re.search(r"heatrisk_updated\s*=\s*['\"](.*?)['\"]", resp.text)
+        if not match:
+            raise ValueError("heatrisk_updated not found")
+        ts = match.group(1)
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        return f"{dt.hour:02d}{dt.minute:02d}"
+    except Exception as exc:
+        logging.error("Failed to fetch heatrisk_updated timestamp: %s", exc)
+        sys.exit(1)
+
 def main(
     base_url: str,
     output_dir: Path,
@@ -347,9 +378,12 @@ def main(
     file_times = extract_file_times(session, base_url)
     issue_date = file_times[1]
     issue_str = issue_date.isoformat()
-    
-    # Build nested year/month/day directory for organization
+
+    # Build nested year/month/day directory. Each filename embeds the
+    # ``heatrisk_updated`` ``HHMM`` timestamp so individual runs remain
+    # distinguishable.
     year, month, day = issue_str.split('-')
+    run_time = get_updated_time(session, base_url)
 
     html = fetch_page(session, base_url)
     links = parse_geotiff_links(session, base_url, html, prefix=days_prefix)
@@ -361,6 +395,17 @@ def main(
     for day_num, forecast_date, href in links:
         file_url = href if href.startswith('http') else f"{base_path}/{href.lstrip('/')}"
 
+        # Compute the final filename including update time
+        final_name = (
+            f"{issue_str}_{run_time}_{forecast_date.isoformat()}_Day{day_num}.tif"
+        )
+        final_path = issue_dir / final_name
+
+        # Skip entirely if the final file already exists
+        if final_path.exists():
+            logging.info("File already exists, skipping download: %s", final_name)
+            continue
+
         # 1) Download into a simple temp placeholder (no final name yet)
         tmp_path = issue_dir / f"Day{day_num}.part"
         download_file(session, file_url, tmp_path)
@@ -368,17 +413,7 @@ def main(
         # 2) Verify the TIFF’s internal DateTime vs. the expected forecast_date
         verify_geotiff_date(tmp_path, forecast_date)
 
-        # 3) Compute the final filename (issue date, forecast date, and day number)
-        final_name = f"{issue_str}_{forecast_date.isoformat()}_Day{day_num}.tif"
-        final_path = issue_dir / final_name
-
-        # If it already exists, remove the temp and skip
-        if final_path.exists():
-            logging.info("Final file already exists, removing temp and skipping: %s", final_name)
-            tmp_path.unlink(missing_ok=True)
-            continue
-
-        # 4) Rename into place now that it’s verified
+        # 3) Rename into place now that it’s verified
         tmp_path.replace(final_path)
         logging.info("Saved verified file as %s", final_name)
 

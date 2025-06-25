@@ -2,7 +2,7 @@
 """
 check_filetimes.py
 
-Fetch the 'heatrisk_updated' timestamp from NOAA HeatRisk FileTimes.json
+Fetch the 'heatrisk_updated' timestamp from NOAA HeatRisk FileTimes.js
 and record it in a single rolling log file under 'filetimes_checks/'.
 
 Usage:
@@ -15,28 +15,28 @@ Requires:
 import argparse
 import logging
 import os
+import re
 import sys
 import requests
 
-URL = "https://www.wpc.ncep.noaa.gov/heatrisk/data/FileTimes.json"
+URL = "https://www.wpc.ncep.noaa.gov/heatrisk/data/FileTimes.js"
 
 
 def fetch_heatrisk_timestamp(url: str) -> str:
-    """GET the JSON and return the 'heatrisk_updated' field."""
+    """GET the JavaScript and return the ``heatrisk_updated`` field."""
     resp = requests.get(url, timeout=10)
     resp.raise_for_status()
-    data = resp.json()
-    ts = data.get("heatrisk_updated")
-    if not ts:
-        raise KeyError("'heatrisk_updated' not found in JSON payload")
-    return ts
+    match = re.search(r"heatrisk_updated\s*=\s*['\"](.*?)['\"]", resp.text)
+    if not match:
+        raise KeyError("'heatrisk_updated' not found in JS payload")
+    return match.group(1)
 
 
 def main():
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
     parser = argparse.ArgumentParser(
-        description="Check NOAA HeatRisk FileTimes.json updated timestamp"
+        description="Check NOAA HeatRisk FileTimes.js updated timestamp"
     )
     parser.add_argument(
         "-o",
