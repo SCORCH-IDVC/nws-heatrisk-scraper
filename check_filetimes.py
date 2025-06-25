@@ -22,7 +22,7 @@ URL = "https://www.wpc.ncep.noaa.gov/heatrisk/data/FileTimes.json"
 
 
 def fetch_heatrisk_timestamp(url: str) -> str:
-    """GET the JSON and return the 'heatrisk_updated' field."""
+    """GET the JSON and return the ``heatrisk_updated`` field."""
     resp = requests.get(url, timeout=10)
     resp.raise_for_status()
     data = resp.json()
