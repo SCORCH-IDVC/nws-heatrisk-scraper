@@ -1,13 +1,11 @@
-# .github/workflows/daily_scrape.yml
+# .github/workflows/hourly_scrape.yml
 
-name: Daily GeoTIFF Scrape
+name: Hourly GeoTIFF Scrape
 
 on:
   schedule:
-    # 9 AM ET during EDT (UTC−4): March through October
-    - cron: '0 13 * 3-10 *'
-    # 9 AM ET during EST (UTC−5): November through February
-    - cron: '0 14 * 11,12,1,2 *'
+    # Run at the top of every hour
+    - cron: '0 * * * *'
   workflow_dispatch:  # allows manual runs
 
 jobs:

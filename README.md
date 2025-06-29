@@ -1,29 +1,31 @@
 # [NWS HeatRisk GeoTIFF Scraper](https://github.com/SCORCH-IDVC/nws-heatrisk-scraper)
 
-![Daily Scrape](https://github.com/SCORCH-IDVC/nws-heatrisk-scraper/actions/workflows/daily_scrape.yml/badge.svg) ![Timestamp Check](https://github.com/SCORCH-IDVC/nws-heatrisk-scraper/actions/workflows/filetimes_check.yml/badge.svg)
+![Hourly Scrape](https://github.com/SCORCH-IDVC/nws-heatrisk-scraper/actions/workflows/hourly_scrape.yml/badge.svg) ![Timestamp Check](https://github.com/SCORCH-IDVC/nws-heatrisk-scraper/actions/workflows/filetimes_check.yml/badge.svg)
 
 [![Changelog](https://img.shields.io/badge/changelog-📖-blue)](CHANGELOG.md) [![Issues](https://img.shields.io/badge/issues-⚠️-yellow)](https://github.com/SCORCH-IDVC/nws-heatrisk-scraper/issues)
 
 A command-line tool and GitHub Actions workflow to:
 
-- Download the daily 7-day HeatRisk GeoTIFF forecasts from NOAA WPC  
-- Organize them under `forecasts/YYYY/MM/DD/`  
+- Download the daily 7-day HeatRisk GeoTIFF forecasts from NOAA WPC
+- Organize them under `forecasts/YYYY/MM/DD/` with the `HHMM` timestamp from
+  `FileTimes.js` embedded in each filename
 - Automatically upload each day’s batch to Dropbox
 
 ---
 
 ## Features
 
-- Uses the site’s own JavaScript mapping (`FileTimes.js`) to get **exact** forecast dates  
+- Uses the site’s own JavaScript mapping (`FileTimes.js`) to get **exact**
+  forecast dates and the `last_updated` timestamp
 - Robust retry logic and download-integrity validation  
 - Verifies each downloaded TIFF’s internal DateTime tag matches its forecast date  
 - Configurable via CLI flags (`--base-url`, `--output-dir`, `--days-prefix`, `--verbose`)  
-- Runs on your machine or scheduled daily via GitHub Actions
+- Runs on your machine or scheduled hourly via GitHub Actions
 - Pushes data off-repo into Dropbox (or any other supported storage)
-> **Experimental:**  
-> - Periodically polls the `heatrisk_updated` timestamp  from FileTimes.json on the heatrisk site via `check_filetimes.py` and logs it (see `.github/workflows/filetimes_check.yml`).
+> **Experimental:**
+> - Periodically polls the `heatrisk_updated` timestamp from `FileTimes.json` on the heatrisk site via `check_filetimes.py` and logs it (see `.github/workflows/filetimes_check.yml`).
 >     - **Note:** When run locally or in CI, `check_filetimes.py` will create a `filetimes_checks/` directory (git-ignored) to store its rolling `updates.txt` log.
->     - **Goal:** Detect if intraday updates of the heatrisk 7-day forecast are occurring. This will inform future updates of the scraper which is currently operating on a daily basis.
+>     - **Goal:** Detect if intraday updates of the heatrisk 7-day forecast are occurring. This will inform future updates of the scraper which is currently running hourly.
 
 ---
 
@@ -127,15 +129,15 @@ To run the scraper locally:
       ```
 
 5. **GitHub Actions**  
-   - **Daily scrape** (`.github/workflows/daily_scrape.yml`):  
-     - Run daily at 09:00 AM EST/EDT  
+   - **Hourly scrape** (`.github/workflows/hourly_scrape.yml`):
+     - Run every hour (top of the hour)
      - Install dependencies  
      - Execute the scraper  
      - Refresh Dropbox access token via your `refresh_token`  
      - Upload the results to your Dropbox App folder  
 
-   - **Experimental monitoring** (`.github/workflows/filetimes_check.yml`):  
-     - Poll `heatrisk_updated` timestamp from FileTimes.json located on the heatrisk site every 7 minutes  
+  - **Experimental monitoring** (`.github/workflows/filetimes_check.yml`):
+    - Poll `heatrisk_updated` timestamp from `FileTimes.json` located on the heatrisk site every 7 minutes
      - Install dependencies and refresh Dropbox access token  
      - Pull existing `filetimes_checks/updates.txt` from Dropbox, run `check_filetimes.py`, and upload updated log
 
@@ -163,7 +165,7 @@ python geotiff_scraper.py \
 nws-heatrisk-scraper/
 ├── .github/
 │   └── workflows/
-│       ├── daily_scrape.yml
+│       ├── hourly_scrape.yml
 │       └── filetimes_check.yml   ← experimental timestamp check
 ├── geotiff_scraper.py
 ├── check_filetimes.py            ← experimental monitoring script
@@ -175,4 +177,4 @@ nws-heatrisk-scraper/
 
 ---
 
-*Last updated: May 5, 2025*
+*Last updated: June 29, 2025*

@@ -6,6 +6,9 @@
 - Cleaned up `check_filetimes.py` imports and ensured file ends with a newline
 - Updated `.gitignore` entries for timestamp checks
 - Standardized version numbers in the changelog with a `v` prefix
+- Switched `hourly_scrape.yml` scheduled to run at the top of every hour
+- Output files now include the `HHMM` run time in the filename derived from
+  `FileTimes.js`
 
 ## [v0.1.0-beta.1] – 2025-05-05
 
@@ -19,4 +22,4 @@
 - GitHub Actions workflow for daily scraping and Dropbox upload
 
 ### Experimental
-- `check_filetimes.py` script and `.github/workflows/filetimes_check.yml` to poll the `heatrisk_updated` timestamp from FileTimes.json on the heatrisk site every ~7 minutes and maintain a rolling log (`updates.txt`) in Dropbox
+- `check_filetimes.py` script and `.github/workflows/filetimes_check.yml` to poll the `heatrisk_updated` timestamp from `FileTimes.json` on the heatrisk site every ~7 minutes and maintain a rolling log (`updates.txt`) in Dropbox
