@@ -390,7 +390,7 @@ def main(
 
         # Compute the final filename including update time
         final_name = (
-            f"{issue_str}_{run_time}_{forecast_date.isoformat()}_Day{day_num}.tif"
+            f"{issue_str}-{run_time}_{forecast_date.isoformat()}_Day{day_num}.tif"
         )
         final_path = issue_dir / final_name
 
