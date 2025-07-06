@@ -1,6 +1,6 @@
 # [NWS HeatRisk GeoTIFF Scraper](https://github.com/SCORCH-IDVC/nws-heatrisk-scraper)
 
-![Hourly Scrape](https://github.com/SCORCH-IDVC/nws-heatrisk-scraper/actions/workflows/hourly_scrape.yml/badge.svg) ![Timestamp Check](https://github.com/SCORCH-IDVC/nws-heatrisk-scraper/actions/workflows/filetimes_check.yml/badge.svg)
+![Hourly Scrape](https://github.com/SCORCH-IDVC/nws-heatrisk-scraper/actions/workflows/hourly_scrape.yml/badge.svg)
 
 [![Changelog](https://img.shields.io/badge/changelog-📖-blue)](CHANGELOG.md) [![Issues](https://img.shields.io/badge/issues-⚠️-yellow)](https://github.com/SCORCH-IDVC/nws-heatrisk-scraper/issues)
 
