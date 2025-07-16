@@ -180,11 +180,11 @@ def download_file(
                 raise
 
 
-def extract_file_times(
+def fetch_filetimes(
     session: requests.Session,
-    base_url: str
-) -> dict:
-    """Load the ``file_times`` mapping from ``FileTimes.js``.
+    base_url: str,
+) -> Tuple[dict[int, date], str]:
+    """Retrieve ``FileTimes.js`` once and return the parsed contents.
 
     Parameters
     ----------
@@ -195,8 +195,9 @@ def extract_file_times(
 
     Returns
     -------
-    dict[int, date]
-        Mapping of day number to ``datetime.date`` objects.
+    Tuple[dict[int, date], str]
+        Mapping of day number to ``datetime.date`` objects and the ``HHMM``
+        portion of the ``last_updated`` timestamp.
 
     The program exits if the file cannot be retrieved or parsed.
     """
@@ -205,31 +206,45 @@ def extract_file_times(
     try:
         resp = session.get(url, timeout=10)
         resp.raise_for_status()
-        match = re.search(r"file_times\s*=\s*(\{.*?\});", resp.text, re.DOTALL)
+
+        js_text = resp.text
+
+        # file_times mapping
+        match = re.search(r"file_times\s*=\s*(\{.*?\});", js_text, re.DOTALL)
         if not match:
             raise ValueError('file_times object not found')
         times = json.loads(match.group(1))
-        return {int(k): datetime.strptime(v, '%m/%d/%Y').date() for k, v in times.items()}
+        mapping = {
+            int(k): datetime.strptime(v, '%m/%d/%Y').date() for k, v in times.items()
+        }
+
+        # last_updated timestamp -> HHMM
+        umatch = re.search(r"last_updated\s*=\s*['\"](.*?)['\"]", js_text)
+        if not umatch:
+            raise ValueError('last_updated not found in FileTimes.js')
+        ts = umatch.group(1)
+        dt = datetime.strptime(ts, "%Y-%m-%d %H:%M UTC")
+        run_time = f"{dt.hour:02d}{dt.minute:02d}"
+
+        return mapping, run_time
+
     except Exception as e:
         logging.error("Error loading FileTimes.js: %s; aborting.", e)
         sys.exit(1)
 
 def parse_geotiff_links(
-    session: requests.Session,
-    base_url: str,
     html: str,
+    file_times: dict,
     prefix: str = 'Day'
 ) -> List[Tuple[int, date, str]]:
     """Extract GeoTIFF links from the HeatRisk HTML page.
 
     Parameters
     ----------
-    session : requests.Session
-        Session used to fetch ``FileTimes.js`` for date mapping.
-    base_url : str
-        Base URL of the data page.
     html : str
         Raw HTML of the data page.
+    file_times : dict
+        Mapping from day number to ``datetime.date`` objects.
     prefix : str, optional
         Text prefix used to identify forecast links.
 
@@ -241,7 +256,6 @@ def parse_geotiff_links(
     If a matching date cannot be found for a day label the program exits.
     """
     soup = BeautifulSoup(html, 'html.parser')
-    file_times = extract_file_times(session, base_url)
 
     geotiffs: List[Tuple[int, date, str]] = []
     pattern = re.compile(rf"^{prefix}\s*(\d+)", re.IGNORECASE)
@@ -322,24 +336,6 @@ def verify_geotiff_date(file_path: Path, expected_date: date) -> None:
         sys.exit(1)
 
 
-def get_updated_time(session: requests.Session, base_url: str) -> str:
-    """Return the `HHMM` portion of the `last_updated` timestamp."""
-    base_path = base_url.rsplit('/', 1)[0]
-    url = f"{base_path}/data/FileTimes.js"
-    try:
-        resp = session.get(url, timeout=10)
-        resp.raise_for_status()
-        # look for last_updated
-        match = re.search(r"last_updated\s*=\s*['\"](.*?)['\"]", resp.text)
-        if not match:
-            raise ValueError("last_updated not found in FileTimes.js")
-        ts = match.group(1)  # e.g. "2025-06-25 16:49 UTC"
-        # parse the "YYYY-MM-DD HH:MM UTC" format
-        dt = datetime.strptime(ts, "%Y-%m-%d %H:%M UTC")
-        return f"{dt.hour:02d}{dt.minute:02d}"
-    except Exception as exc:
-        logging.error("Failed to fetch last_updated timestamp: %s", exc)
-        sys.exit(1)
 
 
 def main(
@@ -367,8 +363,8 @@ def main(
     "User-Agent": f"GeoTIFF-Scraper/{__version__}"})
 
 
-    # Determine run (issue) date
-    file_times = extract_file_times(session, base_url)
+    # Retrieve FileTimes.js once for both date mapping and update time
+    file_times, run_time = fetch_filetimes(session, base_url)
     issue_date = file_times[1]
     issue_str = issue_date.isoformat()
 
@@ -376,10 +372,9 @@ def main(
     # ``last_updated`` ``HHMM`` timestamp so individual runs remain
     # distinguishable.
     year, month, day = issue_str.split('-')
-    run_time = get_updated_time(session, base_url)
 
     html = fetch_page(session, base_url)
-    links = parse_geotiff_links(session, base_url, html, prefix=days_prefix)
+    links = parse_geotiff_links(html, file_times, prefix=days_prefix)
 
     issue_dir = output_dir / year / month / day
     issue_dir.mkdir(parents=True, exist_ok=True)
