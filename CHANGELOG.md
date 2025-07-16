@@ -9,6 +9,8 @@
 - Switched `hourly_scrape.yml` scheduled to run at the top of every hour
 - Output files now include the `HHMM` run time in the filename derived from
   `FileTimes.js`
+- Consolidated all `FileTimes.js` parsing into a single function to share both
+  the date mapping and last-updated timestamp
 
 ## [v0.1.0-beta.1] – 2025-05-05
 

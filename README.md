@@ -17,6 +17,7 @@ A command-line tool and GitHub Actions workflow to:
 
 - Uses the site’s own JavaScript mapping (`FileTimes.js`) to get **exact**
   forecast dates and the `last_updated` timestamp
+- Loads `FileTimes.js` only once to share its parsed data across the scraper
 - Robust retry logic and download-integrity validation  
 - Verifies each downloaded TIFF’s internal DateTime tag matches its forecast date  
 - Configurable via CLI flags (`--base-url`, `--output-dir`, `--days-prefix`, `--verbose`)  
