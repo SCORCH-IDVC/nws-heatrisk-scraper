@@ -4,8 +4,8 @@ name: Hourly GeoTIFF Scrape
 
 on:
   schedule:
-    # Run at the top of every hour
-    - cron: '0 * * * *'
+    # Run once a day at 12:00 PM EST (which is 17:00 UTC and 01:00 PM EDT)
+    - cron: '0 17 * * *'
   workflow_dispatch:  # allows manual runs
 
 jobs:
