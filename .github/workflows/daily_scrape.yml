@@ -1,6 +1,6 @@
 # .github/workflows/hourly_scrape.yml
 
-name: Hourly GeoTIFF Scrape
+name: Daily GeoTIFF Scrape
 
 on:
   schedule:
