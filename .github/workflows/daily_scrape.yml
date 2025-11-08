@@ -1,4 +1,4 @@
-# .github/workflows/hourly_scrape.yml
+# .github/workflows/daily_scrape.yml
 
 name: Daily GeoTIFF Scrape
 
