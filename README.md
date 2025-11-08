@@ -1,6 +1,6 @@
 # [NWS HeatRisk GeoTIFF Scraper](https://github.com/SCORCH-IDVC/nws-heatrisk-scraper)
 
-![Hourly Scrape](https://github.com/SCORCH-IDVC/nws-heatrisk-scraper/actions/workflows/hourly_scrape.yml/badge.svg)
+![Daily Scrape](https://github.com/SCORCH-IDVC/nws-heatrisk-scraper/actions/workflows/daily_scrape.yml/badge.svg)
 
 [![Changelog](https://img.shields.io/badge/changelog-📖-blue)](CHANGELOG.md) [![Issues](https://img.shields.io/badge/issues-⚠️-yellow)](https://github.com/SCORCH-IDVC/nws-heatrisk-scraper/issues)
 
@@ -21,12 +21,12 @@ A command-line tool and GitHub Actions workflow to:
 - Robust retry logic and download-integrity validation  
 - Verifies each downloaded TIFF’s internal DateTime tag matches its forecast date  
 - Configurable via CLI flags (`--base-url`, `--output-dir`, `--days-prefix`, `--verbose`)  
-- Runs on your machine or scheduled hourly via GitHub Actions
+- Runs on your machine or scheduled daily via GitHub Actions
 - Pushes data off-repo into Dropbox (or any other supported storage)
 > **Experimental:**
 > - Periodically polls the `heatrisk_updated` timestamp from `FileTimes.json` on the heatrisk site via `check_filetimes.py` and logs it (see `.github/workflows/filetimes_check.yml`).
 >     - **Note:** When run locally or in CI, `check_filetimes.py` will create a `filetimes_checks/` directory (git-ignored) to store its rolling `updates.txt` log.
->     - **Goal:** Detect if intraday updates of the heatrisk 7-day forecast are occurring. This will inform future updates of the scraper which is currently running hourly.
+>     - **Goal:** Detect if intraday updates of the heatrisk 7-day forecast are occurring. This will inform future updates of the scraper which is currently running daily.
 
 ---
 
@@ -130,7 +130,7 @@ To run the scraper locally:
       ```
 
 5. **GitHub Actions**  
-   - **Hourly scrape** (`.github/workflows/hourly_scrape.yml`):
+   - **Daily scrape** (`.github/workflows/daily_scrape.yml`):
      - Run every hour (top of the hour)
      - Install dependencies  
      - Execute the scraper  
@@ -166,7 +166,7 @@ python geotiff_scraper.py \
 nws-heatrisk-scraper/
 ├── .github/
 │   └── workflows/
-│       ├── hourly_scrape.yml
+│       ├── daily_scrape.yml
 │       └── filetimes_check.yml   ← experimental timestamp check
 ├── geotiff_scraper.py
 ├── check_filetimes.py            ← experimental monitoring script
@@ -178,4 +178,4 @@ nws-heatrisk-scraper/
 
 ---
 
-*Last updated: June 29, 2025*
+*Last updated: November 8, 2025*
