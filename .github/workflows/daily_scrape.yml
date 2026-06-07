@@ -46,17 +46,24 @@ jobs:
       - name: Upload forecasts to Dropbox
         env:
           DROPBOX_TOKEN: ${{ steps.refresh.outputs.token }}
+          # Account-relative path of the destination folder. Leave empty to
+          # upload to the (app folder) root as before, e.g. "/forecasts/...".
+          # For a full-Dropbox app, set this to the target folder's path,
+          # e.g. "/NWS_Data".
+          DROPBOX_DEST_PATH: ${{ secrets.DROPBOX_DEST_PATH }}
         run: |
           python - << 'EOF'
           import os
           import dropbox
           from dropbox.files import WriteMode
 
+          dest_root = os.environ.get('DROPBOX_DEST_PATH', '').rstrip('/')
           dbx = dropbox.Dropbox(os.environ['DROPBOX_TOKEN'])
           for root, _, files in os.walk('forecasts'):
               for fname in files:
                   local_path = os.path.join(root, fname)
-                  dropbox_path = '/' + os.path.relpath(local_path, '.')
+                  rel_path = os.path.relpath(local_path, '.')
+                  dropbox_path = f"{dest_root}/{rel_path}"
                   with open(local_path, 'rb') as f:
                       dbx.files_upload(f.read(), dropbox_path,
                                        mode=WriteMode('overwrite'))
